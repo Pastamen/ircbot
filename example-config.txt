@@ -1,0 +1,17 @@
+server=irc.esper.net
+port=6667
+
+username=hahaha
+realname=hahaha
+nickname=hahaha
+password=hahaha
+
+channel=#drugspls
+
+quote_url=http://pakistan.com/berlin/australia.php
+
+twitter_key=abcdef1234567890
+twitter_token=0123456789abcdef
+
+logfile=/var/log/ircbot.log
+log_to_stdout=true

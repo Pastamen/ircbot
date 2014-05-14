@@ -103,7 +103,7 @@ while 1:
             user = match.group(1)
             message = match.group(2)
 
-            if message[0] == ':':
+            if message[0] == ':' and len(message.split()[0]) >= 4:
                 message = message[1:]
 
                 if message.lower() == 'roll' or message.lower() == 'rtd':
