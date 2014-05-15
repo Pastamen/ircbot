@@ -2,18 +2,13 @@ import socket
 import re
 import urllib.request
 import json
+import time
 
 class IRCBot:
 
     def chathandle(self, msg):
-        # this is received in bytes form, if we can't decode it then there's no point continuing
-        try:
-            msg = msg.decode('utf-8')
-        except UnicodeDecodeError:
-            try:
-                msg = msg.decode('ascii')
-            except UnicodeDecodeError:
-                return
+        # loosely decode into utf-8
+        msg = msg.decode('utf-8', 'ignore')
 
         regexmatch = re.match(self.chatregex, msg)
         if not regexmatch:
@@ -27,6 +22,7 @@ class IRCBot:
             self.privmsg(self.channel, sender + ' says: ' + message)
 
         elif receiver.lower() == self.channel.lower():
+            self.chatlog_write(sender, message)
             if message[0] == ':':
                 splitmessage = message[1:].split(' ', 1)
                 if len(splitmessage[0]) < 2:
@@ -42,7 +38,7 @@ class IRCBot:
                     self.privmsg(self.channel, parameter)
 
                 elif command == 'me':
-                    self.privmsg(self.channel, '/me' + parameter)
+                    self.privmsg(self.channel, '/me ' + parameter)
 
                 elif command == 'quote':
                     quote = json.loads(urllib.request.urlopen(self.quote_url).read().decode('utf-8'))
@@ -63,6 +59,16 @@ class IRCBot:
                 else:
                     pass
 
+    def chatlog_write(self, sender, message):
+        if self.chatlog:
+            t = time.localtime()
+            date_now = (t.tm_mday, t.tm_mon, t.tm_year)
+            if not self.current_date or date_now != self.current_date:
+                self.current_date = date_now
+                self.chatlog.write('\r\n\r\n' + time.strftime('%A %d %B %Y', t) + '\r\n')
+                self.chatlog.write(self.server + ', ' + self.channel + '\r\n')
+            self.chatlog.write('\r\n' + time.strftime('(%H:%M:%S) ', t) + sender + ': ' + message)
+
     def __init__(self, config_name):
         self.server = 'irc.esper.net'
         self.port   = 6667
@@ -75,7 +81,10 @@ class IRCBot:
         self.twitter_key = ''
         self.twitter_token = ''
         self.logfile = None
+        self.chatlog = None
         self.log_to_stdout = False
+
+        self.current_date = None
 
         self.chatregex = re.compile(r':(.+)!~.+@.+ PRIVMSG (.+) :(.*)\r\n', re.IGNORECASE)
 
@@ -120,7 +129,10 @@ class IRCBot:
                     self.twitter_token = line[1]
 
                 elif param == 'logfile':
-                    self.logfile = open(line[1], 'ab')
+                    self.logfile = open(line[1], 'ab', 0)
+
+                elif param == 'chatlog':
+                    self.chatlog = open(line[1], 'a', 1)
 
                 elif param == 'log_to_stdout':
                     if line[1].lower() == 'true':
@@ -176,11 +188,13 @@ class IRCBot:
 
     def privmsg(self, nick, message):
         self.send_irc_msg('PRIVMSG', [nick, ':' + message])
+        if nick.lower() == self.channel.lower():
+            self.chatlog_write(self.nickname, message)
 
     # this expects bytes
     def parse_irc_msg(self, message):
         if message[:4].upper() == b'PING':
-            self.send_irc_msg('PONG', [message[5:].decode('ascii')])
+            self.send_irc_msg('PONG', [message[5:].strip().decode('ascii')])
 
         elif message[:5].upper() == b'ERROR':
             self.setup_connection()
