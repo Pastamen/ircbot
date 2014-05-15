@@ -1,8 +1,13 @@
 import socket
 import re
 import urllib.request
+import urllib.parse
 import json
 import time
+import hmac
+import base64
+import random
+
 
 class IRCBot:
 
@@ -14,9 +19,11 @@ class IRCBot:
         if not regexmatch:
             return
 
-        sender   = regexmatch.group(1)
-        receiver = regexmatch.group(2)
-        message  = regexmatch.group(3)
+        sender          = regexmatch.group(1)
+        sender_ident    = regexmatch.group(2)
+        sender_hostname = regexmatch.group(3)
+        receiver        = regexmatch.group(4)
+        message         = regexmatch.group(5)
 
         if receiver.lower() == self.nickname.lower():
             self.privmsg(self.channel, sender + ' says: ' + message)
@@ -46,6 +53,46 @@ class IRCBot:
                     if len(quote) > 2:
                         quotestr += ', ' + quote[2]
                     self.privmsg(self.channel, quotestr)
+
+                elif command == 'tweet':
+                    if not self.twitter_enabled:
+                        self.privmsg(self.channel, sender + ', tweeting is not configured!')
+                    elif not len(parameter):
+                        self.privmsg(self.channel, sender + ', you didn\'t provide a tweet.')
+                    elif len(parameter) > 140:
+                        self.privmsg(self.channel, sender + ', that tweet is too long.')
+                    else:
+                        random.seed()
+                        base_url = 'https://api.twitter.com/1.1/statuses/update.json'
+                        oauth_params = [
+                            ('oauth_consumer_key',     '"' + self.twitter_key + '"'),
+                            ('oauth_nonce',            '"' + ''.join([chr(random.randint(ord('a'),ord('z'))) for i in range(32)]) + '"'),
+                            ('oauth_signature_method', '"HMAC_SHA1"'),
+                            ('oauth_timestamp',        '"' + str(int(time.time())) + '"'),
+                            ('oauth_token',            '"' + self.twitter_token + '"'),
+                            ('oauth_version',          '"1.0"')
+                        ]
+                        params = [
+                            ('status', urllib.parse.quote(parameter, safe=''))
+                        ]
+                        oauth_signature_msg = ('POST&' + urllib.parse.quote(base_url, safe='') + '&' + urllib.parse.quote('&'.join(['='.join(i) for i in sorted([(urllib.parse.quote(i[0], safe=''), urllib.parse.quote(i[1], safe='')) for i in (oauth_params + params)], key=lambda p: p[0])]), safe='')).encode('ascii')
+                        oauth_signature_key = bytes(urllib.parse.quote(self.twitter_secret, safe='') + '&' + urllib.parse.quote(self.twitter_token_secret, safe=''), 'ascii')
+                        oauth_signature = urllib.parse.quote(base64.b64encode(hmac.new(oauth_signature_key, oauth_signature_msg, 'SHA1').digest()).decode('ascii'), safe='')
+                        req = urllib.request.Request(
+                            base_url,
+                            bytes('&'.join(['='.join(i) for i in params]), 'ascii'),
+                            {'Authorization' :
+                                'OAuth ' +
+                                    ','.join(['='.join(i) for i in oauth_params])
+                            }
+                        )
+                        self.privmsg(self.channel, sender + ', sending tweet now...')
+                        try:
+                            urllib.request.urlopen(req)
+                        except BaseException as e:
+                            self.privmsg(self.channel, sender + ', tweet failed: ' + str(e))
+                            return
+                        self.privmsg(self.channel, sender + ', tweet worked, apparently!')
 
                 else:
                     self.privmsg(self.channel, 'Unknown fucking command, dumbass.')
@@ -80,13 +127,15 @@ class IRCBot:
         self.quote_url = 'http://torin.org.uk/quotes/api/random/'
         self.twitter_key = ''
         self.twitter_token = ''
+        self.twitter_secret = ''
+        self.twitter_token_secret = ''
         self.logfile = None
         self.chatlog = None
         self.log_to_stdout = False
 
         self.current_date = None
 
-        self.chatregex = re.compile(r':(.+)!~.+@.+ PRIVMSG (.+) :(.*)\r\n', re.IGNORECASE)
+        self.chatregex = re.compile(r':(.+)!(.+)@(.+) PRIVMSG (.+) :(.*)\r\n', re.IGNORECASE)
 
         for index, line in enumerate(open(config_name, 'r')):
             line = line.strip()
@@ -128,6 +177,12 @@ class IRCBot:
                 elif param == 'twitter_token':
                     self.twitter_token = line[1]
 
+                elif param == 'twitter_secret':
+                    self.twitter_secret = line[1]
+
+                elif param == 'twitter_token_secret':
+                    self.twitter_token_secret = line[1]
+
                 elif param == 'logfile':
                     self.logfile = open(line[1], 'ab', 0)
 
@@ -162,6 +217,9 @@ class IRCBot:
 
         self.privmsg('NickServ', 'IDENTIFY' + ' ' + self.nickname + ' ' + self.password)
         self.send_irc_msg('JOIN', [self.channel])
+        self.privmsg(self.channel, 'notice: i\'m a huge faggot')
+        time.sleep(2)
+        self.privmsg(self.channel, '(also die)')
 
     def send_irc_msg(self, command, parameters):
         message = command + ' ' + ' '.join(parameters) + '\r\n'
