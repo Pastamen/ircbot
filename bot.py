@@ -78,6 +78,7 @@ class IRCBot:
                         oauth_signature_msg = ('POST&' + urllib.parse.quote(base_url, safe='') + '&' + urllib.parse.quote('&'.join(['='.join(i) for i in sorted([(urllib.parse.quote(i[0], safe=''), urllib.parse.quote(i[1], safe='')) for i in (oauth_params + params)], key=lambda p: p[0])]), safe='')).encode('ascii')
                         oauth_signature_key = bytes(urllib.parse.quote(self.twitter_secret, safe='') + '&' + urllib.parse.quote(self.twitter_token_secret, safe=''), 'ascii')
                         oauth_signature = urllib.parse.quote(base64.b64encode(hmac.new(oauth_signature_key, oauth_signature_msg, 'SHA1').digest()).decode('ascii'), safe='')
+                        oauth_params.append(('oauth_signature', '"' + oauth_signature + '"'))
                         req = urllib.request.Request(
                             base_url,
                             bytes('&'.join(['='.join(i) for i in params]), 'ascii'),
