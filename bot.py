@@ -241,7 +241,7 @@ class IRCBot:
             buf += self.conn.recv(1)
         if self.log_to_stdout:
             # for stdout debugging, just printing ascii-representable characters is best
-            print(buf.decode('ascii', 'ignore'))
+            print(buf.decode('ascii', 'ignore').strip())
         if self.logfile:
             # the logfile receives it raw (if you know what I mean)
             self.logfile.write(buf)
