@@ -48,7 +48,7 @@ class IRCBot:
                     self.privmsg(self.channel, '/me ' + parameter)
                     
                 elif command == 'fellatio':
-                    self.privmsg(self.channel, 'fellatio fellatio fellatio fellatio fellatio f' + parameter)
+                    self.privmsg(self.channel, 'fellatio fellatio fellatio fellatio fellatio f')
 
 
                 elif command == 'quote':
