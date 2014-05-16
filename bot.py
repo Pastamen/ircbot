@@ -46,6 +46,10 @@ class IRCBot:
 
                 elif command == 'me':
                     self.privmsg(self.channel, '/me ' + parameter)
+                    
+                elif command == 'fellatio':
+                    self.privmsg(self.channel, 'fellatio fellatio fellatio fellatio fellatio f')
+
 
                 elif command == 'quote':
                     quote = json.loads(urllib.request.urlopen(self.quote_url).read().decode('utf-8'))
