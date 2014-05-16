@@ -11,9 +11,9 @@ import random
 
 class IRCBot:
 
+    # takes bytes
     def chathandle(self, msg):
-        # loosely decode into utf-8
-        msg = msg.decode('utf-8', 'ignore')
+        msg = msg.decode(errors='ignore')
 
         regexmatch = re.match(self.chatregex, msg)
         if not regexmatch:
@@ -212,52 +212,53 @@ class IRCBot:
     def setup_connection(self):
         self.conn = socket.socket()
         self.conn.connect((self.server, self.port))
-        self.send_irc_msg('USER', [self.username, ' . . :' + self.realname])
-        self.send_irc_msg('NICK', [self.nickname])
+        self.send_irc_msg(b'USER', [self.username.encode(), b' . . :' + self.realname.encode()])
+        self.send_irc_msg(b'NICK', [self.nickname.encode()])
 
         msg = b''
         while msg[:4].upper() != b'PING':
             msg = self.recv_irc_msg()
-        self.send_irc_msg('PONG', [msg[5:].decode('ascii')])
+        self.send_irc_msg(b'PONG', [msg[5:]])
 
         self.privmsg('NickServ', 'IDENTIFY' + ' ' + self.nickname + ' ' + self.password)
-        self.send_irc_msg('JOIN', [self.channel])
+        self.send_irc_msg(b'JOIN', [self.channel.encode()])
         self.privmsg(self.channel, 'notice: i\'m a huge faggot')
         time.sleep(2)
         self.privmsg(self.channel, '(also die)')
 
+    # takes bytes
     def send_irc_msg(self, command, parameters):
-        message = command + ' ' + ' '.join(parameters) + '\r\n'
+        message = command + b' ' + b' '.join(parameters) + b'\r\n'
         if self.log_to_stdout:
-            print('>>', message, end='')
+            print('>>', message.decode('ascii', 'ignore'), end='')
         if self.logfile:
-            self.logfile.write(b'>> ' + bytes(message, 'ascii'))
-        self.conn.send(bytes(message, 'ascii'))
+            self.logfile.write(b'>> ' + message)
+        self.conn.send(message)
 
+    # returns bytes
     def recv_irc_msg(self):
         buf = b''
         while buf[-2:] != b'\r\n':
             buf += self.conn.recv(1)
         if self.log_to_stdout:
-            try:
-                print(buf.decode('utf-8'), end='')
-            except UnicodeDecodeError:
-                print(buf, end='')
+            # for stdout debugging, just printing ascii-representable characters is best
+            print(buf.decode('ascii', 'ignore'))
         if self.logfile:
+            # the logfile receives it raw (if you know what I mean)
             self.logfile.write(buf)
 
-        # return as bytes because decoding can fuck up
         return buf
 
+    # takes strings
     def privmsg(self, nick, message):
-        self.send_irc_msg('PRIVMSG', [nick, ':' + message])
+        self.send_irc_msg(b'PRIVMSG', [nick.encode(), b':' + message.encode()])
         if nick.lower() == self.channel.lower():
             self.chatlog_write(self.nickname, message)
 
-    # this expects bytes
+    # takes bytes
     def parse_irc_msg(self, message):
         if message[:4].upper() == b'PING':
-            self.send_irc_msg('PONG', [message[5:].strip().decode('ascii')])
+            self.send_irc_msg(b'PONG', [message[5:].strip()])
 
         elif message[:5].upper() == b'ERROR':
             self.setup_connection()
