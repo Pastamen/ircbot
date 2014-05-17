@@ -107,9 +107,8 @@ class IRCBot:
                         request = urllib.request.Request(base_url, post_body.encode())
                         request.add_header('Authorization', 'OAuth ' + ','.join(item[0]+'="'+item[1]+'"' for item in oauth_params))
 
-                        self.privmsg(self.channel, sender + ', sending tweet now...')
                         try:
-                            self.privmsg(self.channel, sender + ', tweet is live at https://twitter.com/PastamenDicks/status/' + str(json.loads(urllib.request.urlopen(request).read().decode())['id']))
+                            self.privmsg(self.channel, sender + ', ' + self.twitter_url + '/status/' + str(json.loads(urllib.request.urlopen(request).read().decode())['id']))
                         except BaseException as e:
                             self.privmsg(self.channel, sender + ', tweet failed: ' + str(e))
                             return
@@ -149,6 +148,7 @@ class IRCBot:
         self.twitter_token = ''
         self.twitter_secret = ''
         self.twitter_token_secret = ''
+        self.twitter_url = ''
         self.logfile = None
         self.chatlog = None
         self.log_to_stdout = False
@@ -202,6 +202,9 @@ class IRCBot:
 
                 elif param == 'twitter_token_secret':
                     self.twitter_token_secret = line[1]
+
+                elif param == 'twitter_url':
+                    self.twitter_url = line[1]
 
                 elif param == 'logfile':
                     self.logfile = open(line[1], 'ab', 0)
