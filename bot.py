@@ -12,118 +12,125 @@ import random
 
 class IRCBot:
 
-    # takes bytes
+    # takes 4-tuple: (prefix, command, parameters, trailing parameter)
     def chathandle(self, msg):
-        msg = msg.decode(errors='ignore')
 
-        regexmatch = re.match(self.chatregex, msg)
-        if not regexmatch:
-            return
+        prefix   = msg[0]
+        cmd      = msg[1].upper().strip()
+        params   = msg[2]
+        trailing = msg[3]
 
-        sender          = regexmatch.group(1)
-        sender_ident    = regexmatch.group(2)
-        sender_hostname = regexmatch.group(3)
-        receiver        = regexmatch.group(4)
-        message         = regexmatch.group(5)
-
-        if receiver.lower() == self.nickname.lower():
-            self.privmsg(self.channel, sender + ' says: ' + message)
-
-        elif receiver.lower() == self.channel.lower():
-            self.chatlog_write(sender, message)
-            if message[0] == ':':
-                splitmessage = message[1:].split(' ', 1)
-                if len(splitmessage[0]) < 2:
-                    return
-                command = splitmessage[0].lower()
-                if len(splitmessage) > 1:
-                    parameter = splitmessage[1]
-                else:
-                    parameter = ''
-
-                # commands defined here
-                if command == 'say':
-                    self.privmsg(self.channel, parameter)
-
-                elif command == 'me':
-                    self.privmsg(self.channel, '/me ' + parameter)
-                    
-                elif command == 'fellatio':
-                    self.privmsg(self.channel, 'fellatio fellatio fellatio fellatio fellatio f')
-
-                elif command == 'quote':
-                    quote = json.loads(urllib.request.urlopen(self.quote_url).read().decode('utf-8'))
-                    quotestr = '"' + quote[0] + '" --' + quote[1]
-                    if len(quote) > 2:
-                        quotestr += ', ' + quote[2]
-                    self.privmsg(self.channel, quotestr)
-
-                elif command == 'tweet':
-                    if not self.twitter_enabled:
-                        self.privmsg(self.channel, sender + ', tweeting is not configured!')
-                    elif not len(parameter):
-                        self.privmsg(self.channel, sender + ', you didn\'t provide a tweet.')
-                    elif len(parameter) > 140:
-                        self.privmsg(self.channel, sender + ', that tweet is too long.')
-                    else:
-                        alphanum = [chr(i) for i in range(ord('a'), ord('z')+1)]
-                        alphanum += [chr(i) for i in range(ord('0'), ord('9')+1)]
-                        nonce = ''.join(random.choice(alphanum) for i in range(32))
-                        timestamp = str(int(time.time()))
-
-                        http_method = 'POST'
-                        base_url = 'https://api.twitter.com/1.1/statuses/update.json'
-
-                        oauth_params = [
-                                ('oauth_consumer_key', self.twitter_key),
-                                ('oauth_nonce', nonce),
-                                ('oauth_signature_method', 'HMAC-SHA1'),
-                                ('oauth_timestamp', timestamp),
-                                ('oauth_token', self.twitter_token),
-                                ('oauth_version', '1.0')
-                        ]
-                        post_params = [
-                                ('status', parameter)
-                        ]
-
-                        encoded_params = []
-                        for key, value in oauth_params + post_params:
-                            key = urllib.parse.quote(key, safe='')
-                            value = urllib.parse.quote(value, safe='')
-                            encoded_params.append((key, value))
-                        encoded_params = sorted(encoded_params, key = lambda item: item[0])
-
-                        base_string = '&'.join('='.join(item) for item in encoded_params)
-                        base_string = '&'.join([http_method.upper(), urllib.parse.quote(base_url, safe=''), urllib.parse.quote(base_string, safe='')])
-
-                        signing_key = '&'.join([urllib.parse.quote(self.twitter_secret, safe=''), urllib.parse.quote(self.twitter_token_secret, safe='')])
-
-                        oauth_signature = base64.b64encode(hmac.new(signing_key.encode(), base_string.encode(), hashlib.sha1).digest()).decode()
-                        oauth_params.insert(2, ('oauth_signature', urllib.parse.quote(oauth_signature, safe='')))
-
-                        post_params = [(urllib.parse.quote(item[0], safe=''), urllib.parse.quote(item[1], safe='')) for item in post_params]
-                        post_body = '&'.join('='.join(item) for item in post_params)
-
-                        request = urllib.request.Request(base_url, post_body.encode())
-                        request.add_header('Authorization', 'OAuth ' + ','.join(item[0]+'="'+item[1]+'"' for item in oauth_params))
-
-                        try:
-                            self.privmsg(self.channel, sender + ', ' + self.twitter_url + '/status/' + str(json.loads(urllib.request.urlopen(request).read().decode())['id']))
-                        except BaseException as e:
-                            self.privmsg(self.channel, sender + ', tweet failed: ' + str(e))
-                            return
-
-                else:
-                    self.privmsg(self.channel, 'Unknown fucking command, dumbass.')
+        if cmd in ['CPRIVMSG', 'PRIVMSG']:
+            if '!' in prefix and '@' in prefix:
+                sender          = prefix.split('!')[0]
+                sender_ident    = prefix.split('!')[1].split('@')[0]
+                sender_hostname = prefix.split('!')[1].split('@')[1]
             else:
-                if message.lower() == 'i love cocks':
-                    self.privmsg(self.channel, 'SO DO I HAHAHAHAHA wankers.')
+                sender =          prefix
+                sender_ident =    ''
+                sender_hostname = ''
 
-                elif message.lower() == 'fucking die':
-                    self.privmsg(self.channel, 'no.')
+            receiver = params.split()[0]
+            message  = trailing
 
+            if receiver.lower() == self.nickname.lower():
+                self.privmsg(self.channel, sender + ' says: ' + message)
+
+            elif receiver.lower() == self.channel.lower():
+                self.chatlog_write(sender, message)
+                if message[0] == ':':
+                    splitmessage = message[1:].split(' ', 1)
+                    if len(splitmessage[0]) < 2:
+                        return
+                    command = splitmessage[0].lower()
+                    if len(splitmessage) > 1:
+                        parameter = splitmessage[1]
+                    else:
+                        parameter = ''
+
+                    # commands defined here
+                    if command == 'say':
+                        self.privmsg(self.channel, parameter)
+
+                    elif command == 'me':
+                        self.privmsg(self.channel, '/me ' + parameter)
+                        
+                    elif command == 'fellatio':
+                        self.privmsg(self.channel, 'fellatio fellatio fellatio fellatio fellatio f')
+
+                    elif command == 'quote':
+                        quote = json.loads(urllib.request.urlopen(self.quote_url).read().decode('utf-8'))
+                        quotestr = '"' + quote[0] + '" --' + quote[1]
+                        if len(quote) > 2:
+                            quotestr += ', ' + quote[2]
+                        self.privmsg(self.channel, quotestr)
+
+                    elif command == 'tweet':
+                        if not self.twitter_enabled:
+                            self.privmsg(self.channel, sender + ', tweeting is not configured!')
+                        elif not len(parameter):
+                            self.privmsg(self.channel, sender + ', you didn\'t provide a tweet.')
+                        elif len(parameter) > 140:
+                            self.privmsg(self.channel, sender + ', that tweet is too long.')
+                        else:
+                            alphanum = [chr(i) for i in range(ord('a'), ord('z')+1)]
+                            alphanum += [chr(i) for i in range(ord('0'), ord('9')+1)]
+                            nonce = ''.join(random.choice(alphanum) for i in range(32))
+                            timestamp = str(int(time.time()))
+
+                            http_method = 'POST'
+                            base_url = 'https://api.twitter.com/1.1/statuses/update.json'
+
+                            oauth_params = [
+                                    ('oauth_consumer_key', self.twitter_key),
+                                    ('oauth_nonce', nonce),
+                                    ('oauth_signature_method', 'HMAC-SHA1'),
+                                    ('oauth_timestamp', timestamp),
+                                    ('oauth_token', self.twitter_token),
+                                    ('oauth_version', '1.0')
+                            ]
+                            post_params = [
+                                    ('status', parameter)
+                            ]
+
+                            encoded_params = []
+                            for key, value in oauth_params + post_params:
+                                key = urllib.parse.quote(key, safe='')
+                                value = urllib.parse.quote(value, safe='')
+                                encoded_params.append((key, value))
+                            encoded_params = sorted(encoded_params, key = lambda item: item[0])
+
+                            base_string = '&'.join('='.join(item) for item in encoded_params)
+                            base_string = '&'.join([http_method.upper(), urllib.parse.quote(base_url, safe=''), urllib.parse.quote(base_string, safe='')])
+
+                            signing_key = '&'.join([urllib.parse.quote(self.twitter_secret, safe=''), urllib.parse.quote(self.twitter_token_secret, safe='')])
+
+                            oauth_signature = base64.b64encode(hmac.new(signing_key.encode(), base_string.encode(), hashlib.sha1).digest()).decode()
+                            oauth_params.insert(2, ('oauth_signature', urllib.parse.quote(oauth_signature, safe='')))
+
+                            post_params = [(urllib.parse.quote(item[0], safe=''), urllib.parse.quote(item[1], safe='')) for item in post_params]
+                            post_body = '&'.join('='.join(item) for item in post_params)
+
+                            request = urllib.request.Request(base_url, post_body.encode())
+                            request.add_header('Authorization', 'OAuth ' + ','.join(item[0]+'="'+item[1]+'"' for item in oauth_params))
+
+                            try:
+                                self.privmsg(self.channel, sender + ', ' + self.twitter_url + '/status/' + str(json.loads(urllib.request.urlopen(request).read().decode())['id']))
+                            except BaseException as e:
+                                self.privmsg(self.channel, sender + ', tweet failed: ' + str(e))
+                                return
+
+                    else:
+                        self.privmsg(self.channel, 'Unknown fucking command, dumbass.')
                 else:
-                    pass
+                    if message.lower() == 'i love cocks':
+                        self.privmsg(self.channel, 'SO DO I HAHAHAHAHA wankers.')
+
+                    elif message.lower() == 'fucking die':
+                        self.privmsg(self.channel, 'no.')
+
+                    else:
+                        pass
 
     def chatlog_write(self, sender, message):
         if self.chatlog:
@@ -155,7 +162,7 @@ class IRCBot:
 
         self.current_date = None
 
-        self.chatregex = re.compile(r':(.+)!(.+)@(.+) PRIVMSG (.+) :(.*)\r\n', re.IGNORECASE)
+        self.msgregex = re.compile(r'^(?:[:](\S+) )?(\S+)(?: (?!:)(.+?))?(?: [:](.+))?$')
 
         for index, line in enumerate(open(config_name, 'r')):
             line = line.strip()
@@ -274,15 +281,17 @@ class IRCBot:
             self.chatlog_write(self.nickname, message)
 
     # takes bytes
-    def parse_irc_msg(self, message):
-        if message[:4].upper() == b'PING':
-            self.send_irc_msg(b'PONG', [message[5:].strip()])
-
-        elif message[:5].upper() == b'ERROR':
-            self.setup_connection()
-
-        elif chr(message[0]) == ':':
-            self.chathandle(message)
-
-        else:
-            pass
+    def parse_irc_msg(self, msg):
+        message = msg.decode(errors='ignore').strip()
+        match = re.match(self.msgregex, message) 
+        if match:
+            prefix   = match.groups()[0]
+            cmd      = match.groups()[1].upper().strip()
+            params   = match.groups()[2]
+            trailing = match.groups()[3]
+            if cmd == 'PING':
+                self.send_irc_msg(b'PONG', [msg[5:].strip()])
+            elif cmd == 'ERROR':
+                self.setup_connection()
+            elif cmd in ['CPRIVMSG','INVITE','JOIN','KICK','KILL','MODE','NICK','PRIVMSG','QUIT']:
+                self.chathandle(match.groups())
