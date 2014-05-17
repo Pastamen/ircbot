@@ -5,6 +5,7 @@ import urllib.parse
 import json
 import time
 import hmac
+import hashlib
 import base64
 import random
 
@@ -65,37 +66,54 @@ class IRCBot:
                     elif len(parameter) > 140:
                         self.privmsg(self.channel, sender + ', that tweet is too long.')
                     else:
-                        random.seed()
+                        alphanum = [chr(i) for i in range(ord('a'), ord('z')+1)]
+                        alphanum += [chr(i) for i in range(ord('0'), ord('9')+1)]
+                        nonce = ''.join(random.choice(alphanum) for i in range(32))
+                        timestamp = str(int(time.time()))
+
+                        http_method = 'POST'
                         base_url = 'https://api.twitter.com/1.1/statuses/update.json'
+
                         oauth_params = [
-                            ('oauth_consumer_key',     '"' + self.twitter_key + '"'),
-                            ('oauth_nonce',            '"' + ''.join([chr(random.randint(ord('a'),ord('z'))) for i in range(32)]) + '"'),
-                            ('oauth_signature_method', '"HMAC_SHA1"'),
-                            ('oauth_timestamp',        '"' + str(int(time.time())) + '"'),
-                            ('oauth_token',            '"' + self.twitter_token + '"'),
-                            ('oauth_version',          '"1.0"')
+                                ('oauth_consumer_key', self.twitter_key),
+                                ('oauth_nonce', nonce),
+                                ('oauth_signature_method', 'HMAC-SHA1'),
+                                ('oauth_timestamp', timestamp),
+                                ('oauth_token', self.twitter_token),
+                                ('oauth_version', '1.0')
                         ]
-                        params = [
-                            ('status', urllib.parse.quote(parameter, safe=''))
+                        post_params = [
+                                ('status', message)
                         ]
-                        oauth_signature_msg = ('POST&' + urllib.parse.quote(base_url, safe='') + '&' + urllib.parse.quote('&'.join(['='.join(i) for i in sorted([(urllib.parse.quote(i[0], safe=''), urllib.parse.quote(i[1], safe='')) for i in (oauth_params + params)], key=lambda p: p[0])]), safe='')).encode('ascii')
-                        oauth_signature_key = bytes(urllib.parse.quote(self.twitter_secret, safe='') + '&' + urllib.parse.quote(self.twitter_token_secret, safe=''), 'ascii')
-                        oauth_signature = urllib.parse.quote(base64.b64encode(hmac.new(oauth_signature_key, oauth_signature_msg, 'SHA1').digest()).decode('ascii'), safe='')
-                        oauth_params.append(('oauth_signature', '"' + oauth_signature + '"'))
-                        req = urllib.request.Request(
-                            base_url,
-                            bytes('&'.join(['='.join(i) for i in params]), 'ascii'),
-                            {'Authorization' :
-                                'OAuth ' +
-                                    ','.join(['='.join(i) for i in oauth_params])
-                            }
-                        )
+
+                        encoded_params = []
+                        for key, value in oauth_params + post_params:
+                            key = urllib.parse.quote(key, safe='')
+                            value = urllib.parse.quote(value, safe='')
+                            encoded_params.append((key, value))
+                        encoded_params = sorted(encoded_params, key = lambda item: item[0])
+
+                        base_string = '&'.join('='.join(item) for item in encoded_params)
+                        base_string = '&'.join([http_method.upper(), urllib.parse.quote(base_url, safe=''), urllib.parse.quote(base_string, safe='')])
+
+                        signing_key = '&'.join([urllib.parse.quote(self.twitter_secret, safe=''), urllib.parse.quote(self.twitter_token_secret, safe='')])
+
+                        oauth_signature = base64.b64encode(hmac.new(signing_key.encode(), base_string.encode(), hashlib.sha1).digest()).decode()
+                        oauth_params.insert(2, ('oauth_signature', urllib.parse.quote(oauth_signature, safe='')))
+
+                        post_params = [(urllib.parse.quote(item[0], safe=''), urllib.parse.quote(item[1], safe='')) for item in post_params]
+                        post_body = '&'.join('='.join(item) for item in post_params)
+
+                        request = urllib.request.Request(base_url, post_body.encode())
+                        request.add_header('Authorization', 'OAuth ' + ','.join(item[0]+'="'+item[1]+'"' for item in oauth_params))
+
                         self.privmsg(self.channel, sender + ', sending tweet now...')
                         try:
-                            urllib.request.urlopen(req)
+                            self.privmsg(self.channel, sender + ', tweet is live at https://twitter.com/PastamenDicks/status/' + json.loads(urllib.request.urlopen(request).read().decode())['id'])
                         except BaseException as e:
                             self.privmsg(self.channel, sender + ', tweet failed: ' + str(e))
                             return
+
                         self.privmsg(self.channel, sender + ', tweet worked, apparently!')
 
                 else:
