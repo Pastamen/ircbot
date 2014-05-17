@@ -83,7 +83,7 @@ class IRCBot:
                                 ('oauth_version', '1.0')
                         ]
                         post_params = [
-                                ('status', message)
+                                ('status', parameter)
                         ]
 
                         encoded_params = []
@@ -109,12 +109,10 @@ class IRCBot:
 
                         self.privmsg(self.channel, sender + ', sending tweet now...')
                         try:
-                            self.privmsg(self.channel, sender + ', tweet is live at https://twitter.com/PastamenDicks/status/' + json.loads(urllib.request.urlopen(request).read().decode())['id'])
+                            self.privmsg(self.channel, sender + ', tweet is live at https://twitter.com/PastamenDicks/status/' + str(json.loads(urllib.request.urlopen(request).read().decode())['id']))
                         except BaseException as e:
                             self.privmsg(self.channel, sender + ', tweet failed: ' + str(e))
                             return
-
-                        self.privmsg(self.channel, sender + ', tweet worked, apparently!')
 
                 else:
                     self.privmsg(self.channel, 'Unknown fucking command, dumbass.')
