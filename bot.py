@@ -87,7 +87,7 @@ class IRCBot:
                         elif len(parameter) > 140:
                             self.privmsg(self.channel, sender + ', that tweet is too long.')
                         else:
-                            for i in ['americanair', 'jihad', 'bomb', 'terroris', 'attack', 'explo']:
+                            for i in ['@', 'americanair', 'jihad', 'bomb', 'terroris', 'attack', 'explo']:
                                 if i in parameter.lower():
                                     self.privmsg(self.channel, sender + ', FUCK OFF ALRIGHT')
                                     return
