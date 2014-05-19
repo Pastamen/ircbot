@@ -12,13 +12,27 @@ import random
 
 class IRCBot:
 
-    # takes 4-tuple: (prefix, command, parameters, trailing parameter)
-    def chathandle(self, msg):
+    # takes bytes
+    def parse_irc_msg(self, msg):
 
-        prefix   = msg[0]
-        cmd      = msg[1].upper().strip()
-        params   = msg[2]
-        trailing = msg[3]
+        message = msg.decode(errors='ignore').strip()
+        match = re.match(self.msgregex, message) 
+
+        if not match:
+            return
+
+        groups = match.groups()
+
+        prefix   = groups[0]
+        cmd      = groups[1].upper().strip()
+        params   = groups[2]
+        trailing = groups[3]
+
+        if cmd == 'PING':
+            self.send_irc_msg(b'PONG', [msg[5:].strip()])
+
+        elif cmd == 'ERROR':
+            self.setup_connection()
 
         if cmd == 'PRIVMSG':
             if '!' in prefix and '@' in prefix:
@@ -283,19 +297,3 @@ class IRCBot:
         self.send_irc_msg(b'PRIVMSG', [nick.encode(), b':' + message.encode()])
         if nick.lower() == self.channel.lower():
             self.chatlog_write(self.nickname, message)
-
-    # takes bytes
-    def parse_irc_msg(self, msg):
-        message = msg.decode(errors='ignore').strip()
-        match = re.match(self.msgregex, message) 
-        if match:
-            prefix   = match.groups()[0]
-            cmd      = match.groups()[1].upper().strip()
-            params   = match.groups()[2]
-            trailing = match.groups()[3]
-            if cmd == 'PING':
-                self.send_irc_msg(b'PONG', [msg[5:].strip()])
-            elif cmd == 'ERROR':
-                self.setup_connection()
-            elif cmd in ['CPRIVMSG','INVITE','JOIN','KICK','KILL','MODE','NICK','PRIVMSG','QUIT']:
-                self.chathandle(match.groups())
