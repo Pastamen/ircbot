@@ -20,7 +20,7 @@ class IRCBot:
         params   = msg[2]
         trailing = msg[3]
 
-        if cmd in ['CPRIVMSG', 'PRIVMSG']:
+        if cmd == 'PRIVMSG':
             if '!' in prefix and '@' in prefix:
                 sender          = prefix.split('!')[0]
                 sender_ident    = prefix.split('!')[1].split('@')[0]
@@ -73,6 +73,10 @@ class IRCBot:
                         elif len(parameter) > 140:
                             self.privmsg(self.channel, sender + ', that tweet is too long.')
                         else:
+                            for i in ['americanair', 'jihad', 'bomb', 'terroris', 'attack', 'explo']:
+                                if i in parameter.lower():
+                                    self.privmsg(self.channel, sender + ', FUCK OFF ALRIGHT')
+                                    return
                             alphanum = [chr(i) for i in range(ord('a'), ord('z')+1)]
                             alphanum += [chr(i) for i in range(ord('0'), ord('9')+1)]
                             nonce = ''.join(random.choice(alphanum) for i in range(32))
